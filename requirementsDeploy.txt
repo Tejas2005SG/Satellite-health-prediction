@@ -1,20 +1,21 @@
 # ============================================================
 # SATELLITE HEALTH API - Deployment Requirements (Render.com)
 # ============================================================
-# Install with: pip install -r requirementsDeploy.txt
+# IMPORTANT: Render defaults to Python 3.14+ which has NO TensorFlow support.
+# Pin Python to 3.11.9 via .python-version and runtime.txt files.
+# ============================================================
 
 # ----------------- CORE API -----------------
-fastapi>=0.100.0
-uvicorn[standard]>=0.23.0
-pydantic>=2.0.0
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+pydantic==2.7.1
+python-multipart==0.0.9
 
-# ----------------- ML/DL -----------------
-# Use tensorflow-cpu for Render (no GPU available)
-tensorflow-cpu>=2.15.0
-numpy>=1.24.0
+# ----------------- ML/DL (CPU-only — Render has no GPU) -----------------
+# tensorflow-cpu is the correct package for Linux CPU-only servers
+# numpy MUST be <2.0.0 for TensorFlow 2.x compatibility
+tensorflow-cpu==2.16.1
+numpy==1.26.4
 
 # ----------------- API & DATA -----------------
-requests>=2.31.0
-
-# ----------------- UTILITIES -----------------
-python-multipart>=0.0.6
+requests==2.31.0
