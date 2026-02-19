@@ -1,0 +1,103 @@
+# ============================================================
+# SATELLITE HEALTH API - .gitignore
+# ============================================================
+
+# ----------------- PYTHON -----------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.pyc
+
+# ----------------- VIRTUAL ENV -----------------
+venv/
+ENV/
+env/
+.venv/
+.venv/
+
+# ----------------- IDE -----------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ----------------- MODAL -----------------
+.modal/
+
+# ----------------- ENVIRONMENT (SECURITY!) -----------------
+.env
+.env.local
+.env.*  # IMPORTANT: Never commit API keys!
+
+# ----------------- DATA (Not needed for API) -----------------
+data/
+nasa/
+raw/
+processed/
+
+# ----------------- RESULTS (Keep model files!) -----------------
+# DO NOT IGNORE results/ - contains trained .keras models needed for API!
+# results/                           # <- KEEP THIS, DO NOT IGNORE
+results/trained_models.zip        # <- Can ignore if models are in folders
+
+# ----------------- JUPYTER -----------------
+.ipynb_checkpoints/
+*.ipynb
+*.ipynb_checkpoints
+
+# ----------------- TEST OUTPUTS -----------------
+result_json/
+*.log
+logs/
+
+# ----------------- KAGGLE -----------------
+kaggle.json
+
+# ----------------- TENSORFLOW -----------------
+events.out.tfevents.*
+*.h5
+*.pb
+
+# ----------------- TESTING -----------------
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+benchmarks/
+
+# ----------------- SOURCE CODE (Training - Not needed for API) -----------------
+src/
+modal_scripts/
+empirical_testing/
+evaluation/
+nasa/
+
+# ----------------- SCRIPTS (Only api_server.py needed) -----------------
+run_demo.py
+test_*.py
+*_test.py
+
+# ----------------- DOCS -----------------
+docs/
+*.md
+!README.md
+
+# ----------------- OS -----------------
+.DS_Store
+Thumbs.db
+
+# ----------------- PACKAGING -----------------
+build/
+dist/
+*.egg-info/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg

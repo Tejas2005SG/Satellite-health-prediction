@@ -1,0 +1,19 @@
+# ============================================================
+# SATELLITE HEALTH API - Deployment Requirements
+# ============================================================
+# Install with: pip install -r requirementsDeploy.txt
+
+# ----------------- CORE -----------------
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+pydantic>=2.0.0
+
+# ----------------- ML/DL -----------------
+tensorflow>=2.15.0
+numpy>=1.24.0
+
+# ----------------- API & DATA -----------------
+requests>=2.31.0
+
+# ----------------- UTILITIES -----------------
+python-multipart>=0.0.6
