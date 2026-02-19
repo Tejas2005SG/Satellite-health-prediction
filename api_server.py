@@ -24,6 +24,7 @@ import time
 import warnings
 import requests
 import random
+import os
 warnings.filterwarnings('ignore')
 
 
@@ -73,7 +74,7 @@ app.add_middleware(
 # ═════════════════════════════════════════════════════════════════════
 #  N2YO SATELLITE API CONFIGURATION
 # ═════════════════════════════════════════════════════════════════════
-N2YO_API_KEY = "QTNXRH-FDLX6C-959ZTS-5NT2"
+N2YO_API_KEY = os.environ.get("N2YO_API_KEY", "QTNXRH-FDLX6C-959ZTS-5NT2")
 N2YO_BASE = "https://api.n2yo.com/rest/v1/satellite"
 
 KNOWN_SATELLITES = [

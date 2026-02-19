@@ -1,15 +1,16 @@
 # ============================================================
-# SATELLITE HEALTH API - Deployment Requirements
+# SATELLITE HEALTH API - Deployment Requirements (Render.com)
 # ============================================================
 # Install with: pip install -r requirementsDeploy.txt
 
-# ----------------- CORE -----------------
+# ----------------- CORE API -----------------
 fastapi>=0.100.0
 uvicorn[standard]>=0.23.0
 pydantic>=2.0.0
 
 # ----------------- ML/DL -----------------
-tensorflow>=2.15.0
+# Use tensorflow-cpu for Render (no GPU available)
+tensorflow-cpu>=2.15.0
 numpy>=1.24.0
 
 # ----------------- API & DATA -----------------
