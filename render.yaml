@@ -22,6 +22,6 @@ services:
       - key: PYTHON_VERSION
         value: "3.11"
       - key: N2YO_API_KEY
-        value: "QTNXRH-FDLX6C-959ZTS-5NT2"
+        sync: false  # Set this manually in the Render dashboard to keep it secret!
     # Free tier: auto-sleeps after 15 min of inactivity
     # Cold start takes ~30-60 seconds
