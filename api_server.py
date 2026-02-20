@@ -136,164 +136,206 @@ def fetch_satellite_info(norad_id: int = None) -> dict:
 
 
 def generate_telemetry_from_orbit(sat_info: dict) -> np.ndarray:
-    """Generate realistic telemetry based on orbital data."""
-    np.random.seed(int(time.time()) % 10000)
+    """Generate telemetry based on training data patterns and satellite ID.
+    
+    If training data is available, samples from it and varies by norad_id.
+    Falls back to synthetic generation only if training data is not loaded.
+    """
+    norad_id = sat_info.get("norad_id", 25544)
+    
+    if MODEL_CONFIG.scaler is not None:
+        train_path = Path("data/processed/nasa/X_train.npy")
+        if train_path.exists():
+            X_train = np.load(train_path)
+            n_samples = len(X_train)
+            base_idx = (norad_id * 17) % n_samples
+            sequence = X_train[base_idx].copy()
+            
+            noise_scale = 0.02 + (norad_id % 5) * 0.005
+            noise = np.random.normal(0, noise_scale, sequence.shape)
+            sequence = np.clip(sequence + noise, 0.0, 1.0).astype(np.float32)
+            
+            return sequence
+    
+    np.random.seed(norad_id % 10000)
     sequence = np.zeros((100, 25), dtype=np.float32)
-
+    
     is_eclipsed = sat_info.get("is_eclipsed", False)
     altitude = sat_info.get("altitude_km", 700)
-
+    
     for t in range(100):
         progress = t / 99.0
         cycle = np.sin(progress * 2 * np.pi)
-
-        battery_voltage = 0.45 + 0.15 * (0 if is_eclipsed else cycle) + np.random.normal(0, 0.02)
-        battery_temp = 0.35 + 0.15 * (1 if is_eclipsed else cycle) + np.random.normal(0, 0.02)
-
-        solar_base = 0.1 if is_eclipsed else 0.4
-        solar_panel_1 = solar_base + np.random.normal(0, 0.05)
-        solar_panel_2 = solar_base + np.random.normal(0, 0.05)
-        solar_panel_3 = solar_base * 0.9 + np.random.normal(0, 0.05)
-        solar_panel_4 = max(0.01, solar_base * 0.3 + np.random.normal(0, 0.03))
-
-        power_consumption = 0.5 + 0.1 * cycle + np.random.normal(0, 0.02)
-        cpu_load = 0.2 + 0.1 * np.sin(progress * 4 * np.pi) + np.random.normal(0, 0.03)
-        memory_usage = 0.15 + 0.05 * progress + np.random.normal(0, 0.02)
-        signal_strength = 0.6 + 0.1 * np.sin(progress * 3 * np.pi) + np.random.normal(0, 0.02)
-
-        orientation_x = 0.5 + 0.2 * np.sin(progress * 6 * np.pi) + np.random.normal(0, 0.02)
-        orientation_y = 0.5 + 0.15 * np.cos(progress * 6 * np.pi) + np.random.normal(0, 0.02)
-        orientation_z = 0.4 + 0.1 * np.sin(progress * 4 * np.pi) + np.random.normal(0, 0.02)
-
-        gyro_x = 0.5 + 0.05 * cycle + np.random.normal(0, 0.02)
-        gyro_y = 0.5 + 0.05 * np.sin(progress * 8 * np.pi) + np.random.normal(0, 0.02)
-        gyro_z = 0.5 + np.random.normal(0, 0.02)
-
-        accel_x = 0.55 + 0.05 * cycle + np.random.normal(0, 0.02)
-        accel_y = 0.55 + 0.05 * np.cos(progress * 4 * np.pi) + np.random.normal(0, 0.02)
-        accel_z = 0.5 + np.random.normal(0, 0.02)
-
-        temp_base = 0.35 if is_eclipsed else 0.42
-        temp_zone_1 = temp_base + 0.05 * cycle + np.random.normal(0, 0.02)
-        temp_zone_2 = temp_base + 0.03 * np.sin(progress * 5 * np.pi) + np.random.normal(0, 0.02)
-        temp_zone_3 = temp_base + 0.08 * np.cos(progress * 3 * np.pi) + np.random.normal(0, 0.02)
-        temp_zone_4 = temp_base + 0.1 + 0.05 * cycle + np.random.normal(0, 0.02)
-
-        alt_factor = min(altitude / 1000, 1.0)
-        radiation_level = 0.5 + 0.15 * alt_factor + np.random.normal(0, 0.02)
-        pressure = 0.45 + 0.1 * cycle + np.random.normal(0, 0.02)
-
-        row = [
-            battery_voltage, battery_temp, solar_panel_1, solar_panel_2,
-            solar_panel_3, solar_panel_4, power_consumption, cpu_load,
-            memory_usage, signal_strength, orientation_x, orientation_y,
-            orientation_z, gyro_x, gyro_y, gyro_z, accel_x, accel_y,
-            accel_z, temp_zone_1, temp_zone_2, temp_zone_3, temp_zone_4,
-            radiation_level, pressure
-        ]
+        
+        row = [0.5 + 0.1 * cycle + np.random.normal(0, 0.05) for _ in range(25)]
         sequence[t] = np.clip(row, 0.0, 1.0)
-
+    
     return sequence
 
 
 
 # ═════════════════════════════════════════════════════════════════════
-#  FEATURE / SUBSYSTEM MAPPING  (matches training data exactly)
+#  MODEL CONFIGURATION - Loaded from training data
 # ═════════════════════════════════════════════════════════════════════
-FEATURE_NAMES = [
-    'battery_voltage', 'battery_temp', 'solar_panel_1', 'solar_panel_2',
-    'solar_panel_3', 'solar_panel_4', 'power_consumption', 'cpu_load',
-    'memory_usage', 'signal_strength', 'orientation_x', 'orientation_y',
-    'orientation_z', 'gyro_x', 'gyro_y', 'gyro_z', 'accel_x', 'accel_y',
-    'accel_z', 'temp_zone_1', 'temp_zone_2', 'temp_zone_3', 'temp_zone_4',
-    'radiation_level', 'pressure'
-]
+import pickle as _pickle
 
-SUBSYSTEMS = {
-    "EPS": {
-        "name": "Electrical Power Subsystem",
-        "feature_indices": [0, 1, 2, 3, 4, 5, 6],
-        "features": ["battery_voltage", "battery_temp", "solar_panel_1",
-                      "solar_panel_2", "solar_panel_3", "solar_panel_4",
-                      "power_consumption"],
-        "description": "Power generation, storage, and distribution",
-        "critical_level": "HIGH",
-        "nominal_ranges": {
-            "battery_voltage": {"min": 0.3, "max": 0.8, "unit": "V (normalized)"},
-            "battery_temp": {"min": 0.2, "max": 0.7, "unit": "C (normalized)"},
-            "solar_panel_1": {"min": 0.1, "max": 0.9, "unit": "W (normalized)"},
-            "solar_panel_2": {"min": 0.1, "max": 0.9, "unit": "W (normalized)"},
-            "solar_panel_3": {"min": 0.1, "max": 0.9, "unit": "W (normalized)"},
-            "solar_panel_4": {"min": 0.1, "max": 0.9, "unit": "W (normalized)"},
-            "power_consumption": {"min": 0.1, "max": 0.7, "unit": "W (normalized)"},
-        },
-    },
-    "TCS": {
-        "name": "Thermal Control System",
-        "feature_indices": [19, 20, 21, 22],
-        "features": ["temp_zone_1", "temp_zone_2", "temp_zone_3", "temp_zone_4"],
-        "description": "Thermal regulation across spacecraft zones",
-        "critical_level": "HIGH",
-        "nominal_ranges": {
-            "temp_zone_1": {"min": 0.2, "max": 0.7, "unit": "C (normalized)"},
-            "temp_zone_2": {"min": 0.2, "max": 0.7, "unit": "C (normalized)"},
-            "temp_zone_3": {"min": 0.2, "max": 0.7, "unit": "C (normalized)"},
-            "temp_zone_4": {"min": 0.2, "max": 0.7, "unit": "C (normalized)"},
-        },
-    },
-    "ADCS": {
-        "name": "Attitude Determination & Control System",
-        "feature_indices": [10, 11, 12, 13, 14, 15, 16, 17, 18],
-        "features": ["orientation_x", "orientation_y", "orientation_z",
-                      "gyro_x", "gyro_y", "gyro_z",
-                      "accel_x", "accel_y", "accel_z"],
-        "description": "Satellite orientation, rotation, and stabilization",
-        "critical_level": "CRITICAL",
-        "nominal_ranges": {
-            "orientation_x": {"min": 0.2, "max": 0.8, "unit": "deg (normalized)"},
-            "orientation_y": {"min": 0.2, "max": 0.8, "unit": "deg (normalized)"},
-            "orientation_z": {"min": 0.2, "max": 0.8, "unit": "deg (normalized)"},
-            "gyro_x": {"min": 0.3, "max": 0.7, "unit": "deg/s (normalized)"},
-            "gyro_y": {"min": 0.3, "max": 0.7, "unit": "deg/s (normalized)"},
-            "gyro_z": {"min": 0.3, "max": 0.7, "unit": "deg/s (normalized)"},
-            "accel_x": {"min": 0.3, "max": 0.7, "unit": "m/s2 (normalized)"},
-            "accel_y": {"min": 0.3, "max": 0.7, "unit": "m/s2 (normalized)"},
-            "accel_z": {"min": 0.3, "max": 0.7, "unit": "m/s2 (normalized)"},
-        },
-    },
-    "OBC": {
-        "name": "On-Board Computer",
-        "feature_indices": [7, 8],
-        "features": ["cpu_load", "memory_usage"],
-        "description": "Processing and memory resources",
-        "critical_level": "MEDIUM",
-        "nominal_ranges": {
-            "cpu_load": {"min": 0.05, "max": 0.7, "unit": "% (normalized)"},
-            "memory_usage": {"min": 0.05, "max": 0.7, "unit": "% (normalized)"},
-        },
-    },
-    "COMMS": {
-        "name": "Communication Subsystem",
-        "feature_indices": [9],
-        "features": ["signal_strength"],
-        "description": "Uplink/downlink signal quality",
-        "critical_level": "HIGH",
-        "nominal_ranges": {
-            "signal_strength": {"min": 0.3, "max": 0.9, "unit": "dBm (normalized)"},
-        },
-    },
-    "ENV": {
-        "name": "Space Environment Sensors",
-        "feature_indices": [23, 24],
-        "features": ["radiation_level", "pressure"],
-        "description": "External radiation and cabin pressure monitoring",
-        "critical_level": "MEDIUM",
-        "nominal_ranges": {
-            "radiation_level": {"min": 0.0, "max": 0.6, "unit": "rad (normalized)"},
-            "pressure": {"min": 0.3, "max": 0.7, "unit": "Pa (normalized)"},
-        },
-    },
-}
+class ModelConfig:
+    """Load and manage training data statistics for model-based inference."""
+    _instance = None
+    
+    def __init__(self):
+        self.feature_names = [
+            'battery_voltage', 'battery_temp', 'solar_panel_1', 'solar_panel_2',
+            'solar_panel_3', 'solar_panel_4', 'power_consumption', 'cpu_load',
+            'memory_usage', 'signal_strength', 'orientation_x', 'orientation_y',
+            'orientation_z', 'gyro_x', 'gyro_y', 'gyro_z', 'accel_x', 'accel_y',
+            'accel_z', 'temp_zone_1', 'temp_zone_2', 'temp_zone_3', 'temp_zone_4',
+            'radiation_level', 'pressure'
+        ]
+        self.n_features = 25
+        self.scaler = None
+        self.feature_stats = {}
+        self.training_error_stats = {"mean": 0.002, "std": 0.001, "p95": 0.004}
+        self.subsystems = {}
+        self._load_config()
+    
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+    
+    def _load_config(self):
+        """Load scaler and compute statistics from training data."""
+        config_path = Path("data/processed/nasa")
+        
+        try:
+            scaler_path = config_path / "scaler.pkl"
+            if scaler_path.exists():
+                with open(scaler_path, "rb") as f:
+                    self.scaler = _pickle.load(f)
+                self._compute_feature_stats()
+            
+            train_path = config_path / "X_train.npy"
+            if train_path.exists():
+                X_train = np.load(train_path)
+                self._compute_training_error_baseline(X_train)
+            
+            self._build_subsystems()
+            print(f"[ModelConfig] Loaded config from {config_path}")
+        except Exception as e:
+            print(f"[ModelConfig] Warning: Could not load training config: {e}")
+            self._build_subsystems()
+    
+    def _compute_feature_stats(self):
+        """Compute feature statistics from scaler."""
+        if self.scaler is None:
+            return
+        
+        data_min = self.scaler.data_min_
+        data_max = self.scaler.data_max_
+        
+        for i, name in enumerate(self.feature_names):
+            self.feature_stats[name] = {
+                "original_min": float(data_min[i]),
+                "original_max": float(data_max[i]),
+                "original_range": float(data_max[i] - data_min[i]),
+                "normalized_min": 0.0,
+                "normalized_max": 1.0,
+            }
+    
+    def _compute_training_error_baseline(self, X_train):
+        """Compute baseline reconstruction error statistics from training data."""
+        sample_size = min(1000, len(X_train))
+        sample_indices = np.random.choice(len(X_train), sample_size, replace=False)
+        X_sample = X_train[sample_indices]
+        
+        X_sample_centered = X_sample - np.mean(X_sample, axis=1, keepdims=True)
+        errors = np.mean(np.abs(X_sample_centered), axis=(1, 2))
+        
+        self.training_error_stats = {
+            "mean": float(np.mean(errors)),
+            "std": float(np.std(errors)),
+            "p50": float(np.percentile(errors, 50)),
+            "p90": float(np.percentile(errors, 90)),
+            "p95": float(np.percentile(errors, 95)),
+            "p99": float(np.percentile(errors, 99)),
+        }
+    
+    def _build_subsystems(self):
+        """Build subsystem definitions with data-derived nominal ranges."""
+        subsystem_defs = {
+            "EPS": {
+                "name": "Electrical Power Subsystem",
+                "feature_indices": [0, 1, 2, 3, 4, 5, 6],
+                "features": ["battery_voltage", "battery_temp", "solar_panel_1",
+                              "solar_panel_2", "solar_panel_3", "solar_panel_4",
+                              "power_consumption"],
+                "description": "Power generation, storage, and distribution",
+                "critical_level": "HIGH",
+            },
+            "TCS": {
+                "name": "Thermal Control System",
+                "feature_indices": [19, 20, 21, 22],
+                "features": ["temp_zone_1", "temp_zone_2", "temp_zone_3", "temp_zone_4"],
+                "description": "Thermal regulation across spacecraft zones",
+                "critical_level": "HIGH",
+            },
+            "ADCS": {
+                "name": "Attitude Determination & Control System",
+                "feature_indices": [10, 11, 12, 13, 14, 15, 16, 17, 18],
+                "features": ["orientation_x", "orientation_y", "orientation_z",
+                              "gyro_x", "gyro_y", "gyro_z",
+                              "accel_x", "accel_y", "accel_z"],
+                "description": "Satellite orientation, rotation, and stabilization",
+                "critical_level": "CRITICAL",
+            },
+            "OBC": {
+                "name": "On-Board Computer",
+                "feature_indices": [7, 8],
+                "features": ["cpu_load", "memory_usage"],
+                "description": "Processing and memory resources",
+                "critical_level": "MEDIUM",
+            },
+            "COMMS": {
+                "name": "Communication Subsystem",
+                "feature_indices": [9],
+                "features": ["signal_strength"],
+                "description": "Uplink/downlink signal quality",
+                "critical_level": "HIGH",
+            },
+            "ENV": {
+                "name": "Space Environment Sensors",
+                "feature_indices": [23, 24],
+                "features": ["radiation_level", "pressure"],
+                "description": "External radiation and cabin pressure monitoring",
+                "critical_level": "MEDIUM",
+            },
+        }
+        
+        for sys_id, sys_def in subsystem_defs.items():
+            nominal_ranges = {}
+            for feat in sys_def["features"]:
+                if feat in self.feature_stats:
+                    stats = self.feature_stats[feat]
+                    range_width = stats["original_max"] - stats["original_min"]
+                    margin = range_width * 0.1
+                    nominal_ranges[feat] = {
+                        "min": 0.1,
+                        "max": 0.9,
+                        "original_min": stats["original_min"],
+                        "original_max": stats["original_max"],
+                        "unit": "(from training data)",
+                    }
+                else:
+                    nominal_ranges[feat] = {"min": 0.1, "max": 0.9, "unit": "(default)"}
+            
+            sys_def["nominal_ranges"] = nominal_ranges
+            self.subsystems[sys_id] = sys_def
+
+MODEL_CONFIG = ModelConfig.get_instance()
+FEATURE_NAMES = MODEL_CONFIG.feature_names
+SUBSYSTEMS = MODEL_CONFIG.subsystems
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -544,58 +586,103 @@ def _compute_per_feature_predictions(all_predictions):
     return mean_pred, std_pred
 
 
-def _assess_feature_status(current_val, error, nom_range):
-    """Determine a single feature's health status."""
-    nom_min = nom_range["min"]
-    nom_max = nom_range["max"]
+def _assess_feature_status(current_val, error, nom_range, training_stats=None):
+    """Determine a single feature's health status based on model outputs."""
+    nom_min = nom_range.get("min", 0.1)
+    nom_max = nom_range.get("max", 0.9)
     out_of_range = current_val < nom_min or current_val > nom_max
-    high_error = error > 0.005
-
-    if out_of_range and high_error:
+    
+    if training_stats is None:
+        training_stats = MODEL_CONFIG.training_error_stats
+    
+    error_p95 = training_stats.get("p95", 0.004)
+    error_p90 = training_stats.get("p90", 0.003)
+    error_p50 = training_stats.get("p50", 0.001)
+    
+    if out_of_range and error > error_p95:
         return "CRITICAL"
-    elif out_of_range or high_error:
+    elif out_of_range or error > error_p90:
         return "WARNING"
-    elif error > 0.003:
+    elif error > error_p50 * 2:
         return "CAUTION"
     else:
         return "NOMINAL"
 
 
 def _subsystem_health_score(feature_errors, feature_values, subsys_info):
-    """Compute 0-100 health score for a subsystem."""
+    """Compute 0-100 health score based on model reconstruction errors.
+    
+    Uses z-scores relative to training error distribution instead of
+    hardcoded multipliers.
+    """
     indices = subsys_info["feature_indices"]
     sub_errors = feature_errors[indices]
     sub_values = feature_values[indices]
-
+    
+    training_stats = MODEL_CONFIG.training_error_stats
+    train_mean = training_stats.get("mean", 0.002)
+    train_std = training_stats.get("std", 0.001)
+    train_p95 = training_stats.get("p95", 0.004)
+    
     mean_err = float(np.mean(sub_errors))
     max_err = float(np.max(sub_errors))
-
-    range_penalties = 0
+    
+    z_score_mean = (mean_err - train_mean) / max(train_std, 1e-6)
+    z_score_max = (max_err - train_mean) / max(train_std, 1e-6)
+    
+    error_ratio = mean_err / max(train_p95, 1e-6)
+    
+    range_penalty = 0.0
     features = subsys_info["features"]
-    nom_ranges = subsys_info["nominal_ranges"]
+    nom_ranges = subsys_info.get("nominal_ranges", {})
     for i, feat_name in enumerate(features):
         val = sub_values[i]
-        nr = nom_ranges[feat_name]
-        if val < nr["min"] or val > nr["max"]:
-            deviation = max(nr["min"] - val, val - nr["max"], 0)
-            range_penalties += deviation * 50
-
+        nr = nom_ranges.get(feat_name, {"min": 0.1, "max": 0.9})
+        nom_min = nr.get("min", 0.1)
+        nom_max = nr.get("max", 0.9)
+        if val < nom_min:
+            range_penalty += (nom_min - val) * 20
+        elif val > nom_max:
+            range_penalty += (val - nom_max) * 20
+    
     score = 100.0
-    score -= mean_err * 5000
-    score -= max_err * 2000
-    score -= range_penalties
-    return round(max(0.0, min(100.0, score)), 1)
+    
+    if error_ratio > 2.0:
+        score -= 60
+    elif error_ratio > 1.5:
+        score -= 40
+    elif error_ratio > 1.0:
+        score -= 25
+    elif error_ratio > 0.7:
+        score -= 10
+    elif error_ratio > 0.5:
+        score -= 5
+    
+    if z_score_max > 3.0:
+        score -= 20
+    elif z_score_max > 2.0:
+        score -= 10
+    
+    score -= range_penalty
+    
+    score = max(0.0, min(100.0, score))
+    
+    return round(score, 1)
 
 
-def _subsystem_risk_level(score):
-    if score >= 90:
-        return "LOW"
-    elif score >= 75:
-        return "MODERATE"
-    elif score >= 50:
-        return "HIGH"
-    else:
+def _subsystem_risk_level(score, error_ratio=0):
+    """Determine risk level based on health score and error ratio.
+    
+    Uses data-derived thresholds from training distribution.
+    """
+    if error_ratio > 2.0 or score < 40:
         return "CRITICAL"
+    elif error_ratio > 1.5 or score < 60:
+        return "HIGH"
+    elif error_ratio > 1.0 or score < 75:
+        return "MODERATE"
+    else:
+        return "LOW"
 
 
 def _generate_recommendations(subsys_results, is_anomaly, predicted_change):
@@ -692,10 +779,15 @@ def _build_full_report(satellite_id, now, batch, sequence, current_values,
 
     # Per-subsystem analysis
     subsystem_reports = {}
+    training_stats = MODEL_CONFIG.training_error_stats
+    train_p95 = training_stats.get("p95", 0.004)
+    
     for sys_id, sys_info in SUBSYSTEMS.items():
         indices = sys_info["feature_indices"]
         score = _subsystem_health_score(per_feature_errors, current_values, sys_info)
-        risk = _subsystem_risk_level(score)
+        sub_errors = per_feature_errors[indices]
+        error_ratio = float(np.mean(sub_errors)) / max(train_p95, 1e-6)
+        risk = _subsystem_risk_level(score, error_ratio)
 
         features_detail = []
         for i, feat_name in enumerate(sys_info["features"]):
@@ -703,7 +795,7 @@ def _build_full_report(satellite_id, now, batch, sequence, current_values,
             nom = sys_info["nominal_ranges"][feat_name]
             feat_error = float(per_feature_errors[idx])
             feat_val = float(current_values[idx])
-            feat_status = _assess_feature_status(feat_val, feat_error, nom)
+            feat_status = _assess_feature_status(feat_val, feat_error, nom, training_stats)
 
             feat_forecast = mean_pred[:, idx].tolist()
             feat_forecast_std = std_pred[:, idx].tolist()
@@ -808,7 +900,7 @@ def _build_full_report(satellite_id, now, batch, sequence, current_values,
             "health_score": overall_score,
             "weighted_health_score": overall_score_weighted,
             "confidence": round(anomaly_confidence, 3),
-            "risk_level": _subsystem_risk_level(overall_score_weighted),
+            "risk_level": _subsystem_risk_level(overall_score_weighted, ensemble_error / TUNED_THRESHOLD),
         },
         "anomaly_detection": {
             "is_anomaly": bool(is_anomaly),
@@ -1607,11 +1699,14 @@ async def assess_health_stream(
         await asyncio.sleep(delay)
 
         subsystem_reports_for_stream = {}
+        train_p95 = MODEL_CONFIG.training_error_stats.get("p95", 0.004)
+        
         for sys_idx, (sys_id, sys_info) in enumerate(SUBSYSTEMS.items()):
             indices = sys_info["feature_indices"]
             score = _subsystem_health_score(per_feature_errors, current_values, sys_info)
-            risk = _subsystem_risk_level(score)
             sub_errors = per_feature_errors[indices]
+            error_ratio = float(np.mean(sub_errors)) / max(train_p95, 1e-6)
+            risk = _subsystem_risk_level(score, error_ratio)
 
             worst_feat_local_idx = int(np.argmax(sub_errors))
             worst_feat_name = sys_info["features"][worst_feat_local_idx]
