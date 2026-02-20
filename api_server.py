@@ -62,9 +62,11 @@ app = FastAPI(
     version="3.0.0",
 )
 
+CLIENT_URL = os.environ.get("CLIENT_URL", "http://localhost:5173")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[CLIENT_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
